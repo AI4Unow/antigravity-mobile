@@ -165,7 +165,7 @@ export function ChatInput({
       let media: MediaAttachment[] | undefined;
       if (attachments.length > 0) {
         const prepared = await prepareAttachments(attachments.map((a) => a.file));
-        media = prepared.map(({ bytes: _bytes, ...attachment }) => attachment);
+        media = prepared.map(({ mimeType, inlineData }) => ({ mimeType, inlineData }));
       }
 
       onSend(trimmed || " ", model, media, plannerType);

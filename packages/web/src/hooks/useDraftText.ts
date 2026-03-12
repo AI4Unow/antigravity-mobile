@@ -24,7 +24,9 @@ const draftStore = {
   delete(key: string): void {
     try {
       localStorage.removeItem(DRAFT_PREFIX + key);
-    } catch {}
+    } catch {
+      // localStorage might be unavailable
+    }
   },
 };
 
@@ -38,22 +40,29 @@ interface UseDraftTextResult {
  * Saves the current draft when switching away, loads the new draft when switching to.
  */
 export function useDraftText(activeId: string | null): UseDraftTextResult {
-  const [draftText, setDraftText] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const activeIdRef = useRef(activeId);
 
   useEffect(() => {
-    // Persist current draft before switching
-    if (activeIdRef.current) {
-      draftStore.set(activeIdRef.current, draftText);
-    }
     activeIdRef.current = activeId;
-    setDraftText(activeId ? (draftStore.get(activeId) ?? "") : "");
-  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  const draftText = activeId ? (drafts[activeId] ?? draftStore.get(activeId)) : "";
 
   const handleDraftChange = useCallback(
     (text: string) => {
-      setDraftText(text);
-      if (activeId) draftStore.set(activeId, text);
+      if (!activeId) return;
+
+      setDrafts((prev) => {
+        if (text) {
+          return { ...prev, [activeId]: text };
+        }
+
+        const next = { ...prev };
+        delete next[activeId];
+        return next;
+      });
+      draftStore.set(activeId, text);
     },
     [activeId],
   );

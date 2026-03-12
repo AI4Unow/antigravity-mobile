@@ -250,7 +250,9 @@ export function Sidebar({
         const next = { ...prev, [convId]: conv.summary.lastModifiedTime };
         try {
           localStorage.setItem("porta:seenAt", JSON.stringify(next));
-        } catch {}
+        } catch {
+          // Ignore storage write failures.
+        }
         return next;
       });
     },

@@ -8,6 +8,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createAdaptorServer } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import path from "node:path";
 
 import { discovery } from "./routing.js";
 import { registerConversationRoutes } from "./routes/conversations.js";
@@ -66,6 +68,18 @@ registerWorkspaceRoutes(app);
 registerFileRoutes(app);
 registerSearchRoutes(app);
 registerRpcPassthroughRoutes(app);
+
+// ── Static file serving (single-port mode) ──
+
+const STATIC_DIR = process.env.PORTA_STATIC_DIR?.trim();
+
+if (STATIC_DIR) {
+  const resolvedRoot = path.resolve(STATIC_DIR);
+  console.log(`📁 Serving static files from ${resolvedRoot}`);
+  app.use("/*", serveStatic({ root: resolvedRoot, rewriteRequestPath: (p) => p }));
+  // SPA fallback: serve index.html for non-API, non-file routes
+  app.get("*", serveStatic({ root: resolvedRoot, path: "/index.html" }));
+}
 
 // ── Start ──
 

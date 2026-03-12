@@ -260,6 +260,7 @@ export function useStepsStream(
   useEffect(() => {
     mountedRef.current = true;
     genRef.current++;
+    const generation = genRef.current;
     stepsRef.current = [];
     baseOffsetRef.current = 0;
     endOffsetRef.current = 0;
@@ -278,7 +279,7 @@ export function useStepsStream(
 
     return () => {
       mountedRef.current = false;
-      genRef.current++;
+      genRef.current = generation + 1;
       clearReconnectTimer();
       if (wsRef.current) {
         wsRef.current.close();

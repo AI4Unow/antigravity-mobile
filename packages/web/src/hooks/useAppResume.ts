@@ -14,9 +14,11 @@ export function useAppResume(
   { enabled = true, dedupeMs = 250 }: UseAppResumeOptions = {},
 ): void {
   const onResumeRef = useRef(onResume);
-  onResumeRef.current = onResume;
-
   const lastResumeAtRef = useRef<number>(-Infinity);
+
+  useEffect(() => {
+    onResumeRef.current = onResume;
+  }, [onResume]);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined" || typeof document === "undefined") {

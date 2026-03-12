@@ -17,12 +17,8 @@ import {
 } from "../utils/optimisticMessages";
 import { renderMarkdown } from "../utils/markdown";
 import { MarkdownContent } from "./MarkdownContent";
-import {
-  CommandCard,
-  CodeActionCard,
-  FilePermissionCard,
-  getFilePermissionRequest,
-} from "./StepCards";
+import { CommandCard, CodeActionCard, FilePermissionCard } from "./StepCards";
+import { getFilePermissionRequest } from "../utils/file-permission-request";
 import {
   IconCopy,
   IconCheck,

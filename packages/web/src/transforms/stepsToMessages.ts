@@ -1,5 +1,5 @@
 import type { ChatMessage, TrajectoryStep } from "../types";
-import { getFilePermissionRequest } from "../components/StepCards";
+import { getFilePermissionRequest } from "../utils/file-permission-request";
 
 /** Extract displayable messages from raw trajectory steps */
 export function stepsToMessages(steps: TrajectoryStep[]): ChatMessage[] {

@@ -15,6 +15,6 @@ its own window and receives updates automatically.
 | **Desktop (Edge)**   | Click the install icon (⊕) in the address bar, or go to Settings (···) → **Apps** → **Install Porta**. See [Edge: Install PWAs](https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/). |
 
 > **Note:** PWA installation requires HTTPS or `localhost`. If you access
-> Porta over LAN by IP address, the install prompt will not appear.
-> Use [Cloudflare remote access](../README.md#remote-access-with-cloudflare) for a
-> full PWA experience on mobile.
+> Porta over a raw IP address, the install prompt will usually not appear.
+> Use `tailscale serve` with your MagicDNS hostname for the best mobile and PWA
+> install experience.

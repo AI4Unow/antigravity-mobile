@@ -8,22 +8,33 @@ import {
 } from "./common.mjs";
 
 const logsDir = ensureLogsDir();
+
+// Pass --host to vite when binding to non-loopback (Tailscale)
+const host = process.env.PORTA_HOST || "127.0.0.1";
+const isRemote = host !== "127.0.0.1" && host !== "localhost";
+const webArgs = isRemote
+  ? ["--filter", "@porta/web", "dev", "--", "--host"]
+  : ["--filter", "@porta/web", "dev"];
+
 const runners = [
   spawnLoggedProcess(
     "proxy",
     commandName("pnpm"),
     ["--filter", "@porta/proxy", "dev"],
-    path.join(logsDir, "proxy.log"),
+    logsDir ? path.join(logsDir, "proxy.log") : null,
   ),
   spawnLoggedProcess(
     "web",
     commandName("pnpm"),
-    ["--filter", "@porta/web", "dev"],
-    path.join(logsDir, "web.log"),
+    webArgs,
+    logsDir ? path.join(logsDir, "web.log") : null,
   ),
 ];
 
-console.log("✓ Porta dev - tail logs/proxy.log and logs/web.log");
+console.log(logsDir
+  ? `✓ Porta dev — tail ${logsDir}/proxy.log and ${logsDir}/web.log`
+  : "✓ Porta dev — output streaming to console"
+);
 
 let shuttingDown = false;
 

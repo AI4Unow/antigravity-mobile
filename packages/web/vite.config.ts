@@ -16,6 +16,16 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, repoRoot, "");
   const proxyHost = env.PORTA_HOST || process.env.PORTA_HOST || "127.0.0.1";
   const proxyPort = env.PORTA_PORT || process.env.PORTA_PORT || "3170";
+  const isRemote =
+    proxyHost !== "127.0.0.1" && proxyHost !== "localhost";
+
+  // Build a strict allowlist instead of accepting any Host header.
+  // This prevents DNS-rebinding attacks while still supporting
+  // Tailscale / LAN development when PORTA_HOST is a non-loopback address.
+  const allowedHosts: string[] = ["localhost"];
+  if (isRemote) {
+    allowedHosts.push(proxyHost);
+  }
 
   return {
     plugins: [
@@ -31,6 +41,8 @@ export default defineConfig(({ mode }) => {
     ],
     envDir: repoRoot,
     server: {
+      host: isRemote ? true : false,
+      allowedHosts,
       proxy: {
         "/api": {
           target: toHttpOrigin(proxyHost, proxyPort),

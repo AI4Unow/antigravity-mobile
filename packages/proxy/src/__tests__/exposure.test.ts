@@ -26,6 +26,15 @@ describe("proxy exposure guard", () => {
     expect(() => assertSupportedListenHost("192.168.1.20")).not.toThrow();
   });
 
+  it("accepts Tailscale CGNAT IPs (100.64.0.0/10)", () => {
+    expect(isPrivateLanHost("100.100.100.100")).toBe(true);
+    expect(isPrivateLanHost("100.64.0.1")).toBe(true);
+    expect(isPrivateLanHost("100.127.255.254")).toBe(true);
+    expect(isPrivateLanHost("100.63.0.1")).toBe(false); // below CGNAT range
+    expect(isPrivateLanHost("100.128.0.1")).toBe(false); // above CGNAT range
+    expect(() => assertSupportedListenHost("100.100.100.100")).not.toThrow();
+  });
+
   it("rejects wildcard bind addresses", () => {
     expect(() => assertSupportedListenHost("0.0.0.0")).toThrow(/Wildcard bind/);
     expect(() => assertSupportedListenHost("::")).toThrow(/Wildcard bind/);

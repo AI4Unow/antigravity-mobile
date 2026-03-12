@@ -4,8 +4,10 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  writeFileSync,
+  unlinkSync,
 } from "node:fs";
-import { EOL } from "node:os";
+import { EOL, tmpdir } from "node:os";
 import path from "node:path";
 
 export const isWindows = process.platform === "win32";
@@ -16,10 +18,30 @@ export function commandName(base) {
 
 export function ensureLogsDir() {
   const dir = path.resolve("logs");
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
+  try {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    // Test write access
+    const testFile = path.join(dir, ".write-test");
+    writeFileSync(testFile, "");
+    unlinkSync(testFile);
+    return dir;
+  } catch {
+    // Fallback to /tmp when project dir is not writable (macOS sandbox)
+    const fallback = "/tmp/porta-logs";
+    try {
+      if (!existsSync(fallback)) {
+        mkdirSync(fallback, { recursive: true });
+      }
+      console.warn(`⚠️  logs/ not writable, using ${fallback}`);
+      return fallback;
+    } catch {
+      // Total fallback — return null, callers should handle
+      console.warn("⚠️  Cannot create log directory. Output goes to console.");
+      return null;
+    }
   }
-  return dir;
 }
 
 function unquote(value) {
@@ -45,7 +67,12 @@ export function loadEnvFile(filePath = ".env") {
     if (separator < 1) continue;
 
     const key = line.slice(0, separator).trim();
-    const value = unquote(line.slice(separator + 1).trim());
+    let value = unquote(line.slice(separator + 1).trim());
+    // Strip inline comments (# not inside quotes)
+    const hashIdx = value.indexOf("#");
+    if (hashIdx > 0) {
+      value = value.slice(0, hashIdx).trim();
+    }
 
     if (process.env[key] === undefined) {
       process.env[key] = value;
@@ -61,6 +88,21 @@ export function spawnLoggedProcess(
   extraEnv = {},
 ) {
   const shellCmd = [command, ...args].join(" ");
+
+  // If no log file (sandbox), pipe directly to console
+  if (!logFile) {
+    const child = spawn(shellCmd, [], {
+      env: { ...process.env, ...extraEnv },
+      stdio: "inherit",
+      windowsHide: true,
+      shell: true,
+    });
+    child.on("error", (err) => {
+      console.error(`[${label}] failed to start: ${err.message}`);
+    });
+    return { child, logStream: { end: (cb) => cb?.() } };
+  }
+
   const child = spawn(shellCmd, [], {
     env: { ...process.env, ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],

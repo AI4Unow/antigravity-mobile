@@ -45,7 +45,7 @@ function isSafeUri(
   if (!uri) return false;
 
   const normalized = decodeHtmlEntities(uri.trim())
-    .replace(/[\u0000-\u0020\u007f-\u009f]+/g, "")
+    .replace(/[\0-\x20\x7f-\x9f]+/g, "")
     .toLowerCase();
 
   if (!normalized) return false;
