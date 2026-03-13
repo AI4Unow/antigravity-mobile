@@ -25,6 +25,7 @@ if (!host || host === "127.0.0.1") {
 }
 
 const port = process.env.PORTA_PORT ?? "3170";
+const webPort = process.env.PORTA_WEB_PORT ?? "5173";
 
 // ── Print access info + QR code ──
 
@@ -48,7 +49,7 @@ const tsHostname = process.env.PORTA_TAILSCALE_HOSTNAME?.trim();
 if (tsHostname) {
   try {
     execSync(
-      `tailscale serve --bg --https=443 http://localhost:${port}`,
+      `tailscale serve --bg --https=443 http://127.0.0.1:${webPort}`,
       { stdio: "inherit" },
     );
     const httpsUrl = `https://${tsHostname}`;
