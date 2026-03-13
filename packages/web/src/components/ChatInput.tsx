@@ -20,7 +20,7 @@ interface Props {
     model: string | null,
     media?: MediaAttachment[],
     plannerType?: PlannerType,
-  ) => void;
+  ) => Promise<void>;
   onStop: () => void;
   isRunning: boolean;
   disabled?: boolean;
@@ -168,7 +168,9 @@ export function ChatInput({
         media = prepared.map(({ mimeType, inlineData }) => ({ mimeType, inlineData }));
       }
 
-      onSend(trimmed || " ", model, media, plannerType);
+      await onSend(trimmed || " ", model, media, plannerType);
+
+      // Only clear draft & attachments on successful send
       onDraftChange("");
       attachments.forEach((attachment) => {
         URL.revokeObjectURL(attachment.dataUrl);
@@ -179,7 +181,7 @@ export function ChatInput({
       }
     } catch (err) {
       showFileError(
-        err instanceof Error ? err.message : "Failed to process attachments",
+        err instanceof Error ? err.message : "Failed to send message",
       );
     } finally {
       setIsPreparingAttachments(false);

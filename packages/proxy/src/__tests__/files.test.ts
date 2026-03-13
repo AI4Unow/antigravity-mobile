@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { resolveSafeHomeFilePath } from "../routes/files.js";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync, realpathSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 describe("resolveSafeHomeFilePath", () => {
   it("allows files under home", () => {
@@ -64,3 +67,36 @@ describe("resolveSafeHomeFilePath", () => {
     ).toBeNull();
   });
 });
+
+describe("symlink escape detection", () => {
+  it("lexical check passes but realpath escapes home boundary", () => {
+    const base = mkdtempSync(join(tmpdir(), "porta-test-"));
+    const fakeHome = join(base, "home");
+    const outside = join(base, "outside");
+    const outsideFile = join(outside, "secret.png");
+
+    try {
+      mkdirSync(fakeHome, { recursive: true });
+      mkdirSync(outside, { recursive: true });
+      writeFileSync(outsideFile, "secret");
+
+      // Create symlink: fakeHome/pics -> outside
+      symlinkSync(outside, join(fakeHome, "pics"));
+
+      // Lexical check passes (path looks like it's under home)
+      const resolved = resolveSafeHomeFilePath(
+        join(fakeHome, "pics", "secret.png"),
+        fakeHome,
+      );
+      expect(resolved).not.toBeNull();
+
+      // But realpath reveals the escape
+      const realPath = realpathSync(resolved!);
+      const realHome = realpathSync(fakeHome);
+      expect(realPath.startsWith(realHome + "/")).toBe(false);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+});
+

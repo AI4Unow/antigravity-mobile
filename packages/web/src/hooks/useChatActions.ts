@@ -164,6 +164,7 @@ export function useChatActions({
           icon: "alert",
         };
         setOptimisticMessages((prev) => [...prev, errorMsg]);
+        throw err; // Propagate so ChatInput preserves draft & attachments
       }
     },
     [activeId, refresh, currentWorkspaceUri, projectSlug, navigate],

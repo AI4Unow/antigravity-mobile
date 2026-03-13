@@ -124,7 +124,7 @@ function ChatView() {
       media?: MediaAttachment[],
       plannerType?: PlannerType,
     ) => {
-      doSend(text, model, media, plannerType, true);
+      return doSend(text, model, media, plannerType, true);
     },
     [doSend],
   );
@@ -154,6 +154,7 @@ function ChatView() {
         refresh();
       } catch (err) {
         console.error("Failed to respond to file permission:", err);
+        throw err; // Propagate so FilePermissionCard can restore buttons
       }
     },
     [activeId, refresh, triggerSoftRefresh],

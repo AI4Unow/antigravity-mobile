@@ -51,7 +51,7 @@ interface FilePermissionCardProps {
     allow: boolean,
     scope: number,
     absolutePathUri: string,
-  ) => void;
+  ) => Promise<void>;
 }
 
 export function FilePermissionCard({
@@ -70,9 +70,14 @@ export function FilePermissionCard({
   const displayPath = path.length > 60 ? "…" + path.slice(-55) : path;
   const isDir = permissionRequest.isDirectory ?? false;
 
-  const handleResponse = (allow: boolean, scope: number) => {
+  const handleResponse = async (allow: boolean, scope: number) => {
     setResponded(true);
-    onFilePermission(trajectoryId, stepIndex, allow, scope, path);
+    try {
+      await onFilePermission(trajectoryId, stepIndex, allow, scope, path);
+    } catch {
+      // Request failed — restore buttons so user can retry
+      setResponded(false);
+    }
   };
 
   return (

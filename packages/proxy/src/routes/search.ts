@@ -1,11 +1,14 @@
 /**
  * /api/search route — full-text search across conversations
+ *
+ * Enumerates ALL LS instances and de-duplicates trajectories by cascadeId
+ * (highest stepCount wins) so multi-workspace setups are fully searched.
  */
 
 import type { Hono } from "hono";
-import { rpc } from "../routing.js";
+import type { LSInstance } from "../discovery.js";
+import { discovery, rpc } from "../routing.js";
 import { getMetadata } from "../metadata.js";
-import { handleRPCError } from "../errors.js";
 
 // ── Step text cache ──
 
@@ -54,8 +57,12 @@ export function extractStepText(step: Record<string, unknown>): string {
   return parts.join(" ");
 }
 
-/** Fetch and cache step texts for a conversation (with timeout) */
-async function getStepTexts(cascadeId: string): Promise<string[]> {
+/** Fetch and cache step texts for a conversation (with timeout).
+ *  Optionally pin to a specific LS instance for correct routing. */
+async function getStepTexts(
+  cascadeId: string,
+  instance?: LSInstance,
+): Promise<string[]> {
   const cached = stepCache.get(cascadeId);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     return cached.texts;
@@ -70,11 +77,15 @@ async function getStepTexts(cascadeId: string): Promise<string[]> {
   try {
     const metadata = await getMetadata(true);
     while (true) {
-      const page = (await rpc.call("GetCascadeTrajectorySteps", {
-        metadata,
-        cascadeId,
-        offset,
-      })) as { steps?: Record<string, unknown>[] };
+      const page = (await rpc.call(
+        "GetCascadeTrajectorySteps",
+        {
+          metadata,
+          cascadeId,
+          stepOffset: offset,
+        },
+        instance,
+      )) as { steps?: Record<string, unknown>[] };
 
       const steps = page.steps ?? [];
       if (steps.length === 0) break;
@@ -128,16 +139,49 @@ export function registerSearchRoutes(app: Hono): void {
     const queryLower = query.toLowerCase();
     const startTime = Date.now();
 
-    // Get all conversations
-    let trajectories: Record<string, Record<string, unknown>> = {};
+    // ── Enumerate ALL LS instances and merge trajectories ──
+    const trajectories: Record<string, Record<string, unknown>> = {};
+    const ownerMap = new Map<string, LSInstance>();
+
     try {
-      const metadata = await getMetadata(true);
-      const resp = (await rpc.call("GetAllCascadeTrajectories", {
-        metadata,
-      })) as {
-        trajectorySummaries?: Record<string, Record<string, unknown>>;
-      };
-      trajectories = resp.trajectorySummaries ?? {};
+      const instances = await discovery.getInstances();
+      if (instances.length === 0) {
+        return c.json({ error: "No Language Server instances available" }, 503);
+      }
+
+      let successCount = 0;
+      await Promise.allSettled(
+        instances.map(async (inst) => {
+          try {
+            const metadata = await getMetadata(true);
+            const resp = (await rpc.call(
+              "GetAllCascadeTrajectories",
+              { metadata },
+              inst,
+            )) as {
+              trajectorySummaries?: Record<string, Record<string, unknown>>;
+            };
+            successCount++;
+            const summaries = resp.trajectorySummaries ?? {};
+            for (const [id, summary] of Object.entries(summaries)) {
+              const existing = trajectories[id];
+              const newCount = (summary.stepCount as number) ?? 0;
+              const oldCount = (existing?.stepCount as number) ?? -1;
+              if (!existing || newCount > oldCount) {
+                trajectories[id] = summary;
+                ownerMap.set(id, inst);
+              }
+            }
+          } catch {
+            // Skip unreachable instances — checked after loop
+          }
+        }),
+      );
+
+      // All LS instances failed — report error, not empty results
+      if (successCount === 0) {
+        return c.json({ error: "All Language Server instances unreachable" }, 503);
+      }
     } catch {
       return c.json({ error: "Failed to list conversations" }, 500);
     }
@@ -156,7 +200,7 @@ export function registerSearchRoutes(app: Hono): void {
         // Quick check: search title first
         const titleMatch = title.toLowerCase().includes(queryLower);
 
-        const texts = await getStepTexts(id);
+        const texts = await getStepTexts(id, ownerMap.get(id));
         const snippets: string[] = [];
         let matchCount = titleMatch ? 1 : 0;
 

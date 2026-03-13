@@ -43,7 +43,7 @@ interface Props {
     allow: boolean,
     scope: number,
     absolutePathUri: string,
-  ) => void;
+  ) => Promise<void>;
   onCommandAction?: (
     trajectoryId: string,
     stepIndex: number,
@@ -124,7 +124,7 @@ function SystemMessage({
     allow: boolean,
     scope: number,
     absolutePathUri: string,
-  ) => void;
+  ) => Promise<void>;
   onCommandAction?: (
     trajectoryId: string,
     stepIndex: number,

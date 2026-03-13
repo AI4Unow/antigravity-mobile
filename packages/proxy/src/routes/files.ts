@@ -3,7 +3,7 @@
  */
 
 import type { Hono } from "hono";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, realpathSync } from "node:fs";
 import { extname, posix, win32 } from "node:path";
 import { Readable } from "node:stream";
 import { homedir } from "node:os";
@@ -137,7 +137,7 @@ export function registerFileRoutes(app: Hono): void {
       return c.json({ error: "Missing 'uri' or 'path' query param" }, 400);
     }
 
-    // Security: only serve files under home dir
+    // Security: only serve files under home dir (lexical check)
     const resolved = resolveSafeHomeFilePath(fileRef);
     if (!resolved) {
       return c.json({ error: "Access denied" }, 403);
@@ -154,7 +154,20 @@ export function registerFileRoutes(app: Hono): void {
       return c.json({ error: "File not found" }, 404);
     }
 
-    const stream = createReadStream(resolved);
+    // Security: resolve symlinks before serving to prevent escaping home
+    let realPath: string;
+    try {
+      realPath = realpathSync(resolved);
+    } catch {
+      return c.json({ error: "File not found" }, 404);
+    }
+    const realHome = realpathSync(homedir());
+    const sep = realHome.includes("\\") ? "\\" : "/";
+    if (realPath !== realHome && !realPath.startsWith(realHome + sep)) {
+      return c.json({ error: "Access denied" }, 403);
+    }
+
+    const stream = createReadStream(realPath);
     return new Response(Readable.toWeb(stream) as ReadableStream, {
       headers: {
         "Content-Type": mimeType,
